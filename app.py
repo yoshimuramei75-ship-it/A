@@ -3,6 +3,7 @@ import google.generativeai as genai
 import json
 from PIL import Image
 import re 
+import io
 
 # ==========================================
 # 🔑 APIキー（Web公開用の安全な設定）
@@ -111,7 +112,7 @@ def check_report(data):
     else:
         results.append(get_check_message_flexible("一般運転手", dr_calc, driver_in))
 
-    # 5. 小型バックホウ (転記)
+    # 5. 小型バックホウ
     bh_nums = get_calc_nums(data.get('backhoe_calc_str', ''))
     bh_calc = bh_nums[0] if bh_nums else 0.0
     if backhoe_in == 0.0:
@@ -156,31 +157,45 @@ def check_report(data):
     return results
 
 # ==========================================
-# 🎨 画面レイアウト（タブを廃止し、最速貼り付け特化！）
+# 🎨 画面レイアウト
 # ==========================================
 st.set_page_config(page_title="応急作業日報チェック", layout="centered")
 
 if 'processed_image' not in st.session_state:
     st.session_state['processed_image'] = None
 
-st.title("🚧 応急作業日報 自動チェックアプリ 🐙")
+st.title("🚧 応急作業日報 自動チェック 🐙")
 
-st.markdown("### 📋 スクショをそのまま貼り付け！")
-st.success("💡 **最速のやり方**\n1. `Win` + `Shift` + `S` キーで日報のスクショを撮る\n2. アプリを開いて、どこもクリックせずにそのまま **`Ctrl` + `V`** を押すだけ！")
+st.markdown("### 📝 日報データを読み込む")
+st.success("💡 **使い方**\n画像や**PDFファイル**をそのまま下の枠にドラッグ＆ドロップしてください。\n※ブラウザの仕様上、どうしてもCtrl+Vで貼れない場合は「Browse files」からファイルを選んでください。")
 
-# タブをなくして、常に貼り付けを受け付ける状態にしました
-uploaded_file = st.file_uploader("📂 万が一貼り付けられない場合は、ここから選んでください", type=['png', 'jpg', 'jpeg'], key="file_uploader", label_visibility="collapsed")
+# 💡 拡張子にPDFを追加しました！
+uploaded_file = st.file_uploader("📂 画像やPDFをここにドロップ", type=['png', 'jpg', 'jpeg', 'pdf'], label_visibility="collapsed")
 
-# スマホの人向けに、カメラも下に出しておきます
+camera_file = None
 with st.expander("📸 スマホから直接撮影する場合はこちらをタップ"):
     camera_file = st.camera_input("カメラで撮影", label_visibility="collapsed")
-else:
-    camera_file = None
 
-# 画像のセット
+# 画像・PDFのセット処理
 temp_image = None
 if uploaded_file:
-    temp_image = Image.open(uploaded_file)
+    # PDFファイルがアップロードされた場合の特別な処理
+    if uploaded_file.name.lower().endswith('.pdf'):
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            if len(doc) > 0:
+                pix = doc[0].get_pixmap(dpi=150) # 1ページ目を画像化
+                temp_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            else:
+                st.error("❌ 空のPDFです。")
+        except ImportError:
+            st.error("🚨 PDFを読み込むための設定が足りません！ `requirements.txt` に `pymupdf` を追加してください。")
+        except Exception as e:
+            st.error(f"❌ PDFの読み込みに失敗しました: {e}")
+    else:
+        temp_image = Image.open(uploaded_file)
+
 elif camera_file:
     temp_image = Image.open(camera_file)
 
@@ -195,7 +210,7 @@ if st.session_state['processed_image']:
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        if st.button("🗑️ 画像をクリアしてやり直す", use_container_width=True):
+        if st.button("🗑️ クリアしてやり直す", use_container_width=True):
             st.session_state['processed_image'] = None
             st.rerun()
     with col2:
