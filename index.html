@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工事日報アプリ</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; background-color: #f4f5f7; height: 100vh; display: flex; flex-direction: column; font-size: 0.9rem; }
+        .container { display: flex; flex: 1; overflow: hidden; width: 100vw; }
+        
+        .col-left { 
+            flex: 1.8; min-width: 0; background: white; border-right: 1px solid #ccc; 
+            padding: 10px; display: flex; flex-direction: column; overflow: hidden; 
+            box-sizing: border-box; position: relative; transition: 0.3s;
+        }
+        
+        .col-center { flex: 4; min-width: 0; padding: 12px 20px; background: #fafafa; overflow-y: auto; overflow-x: hidden; transition: 0.3s; box-sizing: border-box; }
+        .col-right { flex: 4.2; min-width: 0; padding: 10px; border-left: 1px solid #ccc; background: white; overflow-y: auto; box-sizing: border-box; transition: 0.3s; }
+        .tabs { display: flex; margin-bottom: 10px; border-bottom: 1px solid #ddd; }
+        .tab { flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #aaa; font-weight: bold; font-size: 0.85rem; }
+        .tab.active { color: #1a73e8; border-bottom: 2px solid #1a73e8; margin-bottom: -1px; }
+        .project-card { border: 1px solid #ddd; padding: 10px; margin-bottom: 6px; border-radius: 4px; cursor: pointer; background: white; line-height: 1.2; user-select: none; }
+        .project-card.active { border-left: 4px solid #1a73e8; background: #e8f0fe; }
+        .btn-add { background: #1a73e8; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; font-size: 0.85rem;}
+        .disabled-section { opacity: 0.4; pointer-events: none; }
+        
+        .strict-lock { opacity: 0.3 !important; pointer-events: none !important; filter: grayscale(100%); transition: 0.3s; }
+        
+        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .report-title { font-size: 1.1rem; margin: 0; font-weight: bold; }
+        .badge { background: #757575; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 3px; font-weight: normal; }
+        .badge.active { background: #1a73e8; }
+        .btn-save { background: #1a73e8; color: white; border: none; padding: 6px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem; transition: 0.3s; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 3px; color: #333; }
+        .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; transition: 0.3s; }
+        .flex-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-end; }
+        .flex-1 { flex: 1; min-width: 0; }
+        .weather-group { display: flex; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
+        .w-btn { flex: 1; text-align: center; padding: 6px; cursor: pointer; background: white; color: #666; font-size: 0.85rem; border-right: 1px solid #ccc; font-weight: bold; }
+        .w-btn.active { background: #757575; color: white; }
+        .passfail-group { display: flex; border-radius: 4px; overflow: hidden; border: 1px solid #ccc; width: 100px; height: 32px; }
+        .pf-btn { flex: 1; text-align: center; line-height: 32px; cursor: pointer; font-weight: bold; background: white; font-size: 0.8rem; }
+        .pf-btn[data-val="合"].active { background: #1a73e8; color: white; border-color: #1a73e8; }
+        .pf-btn[data-val="否"].active { background: #d32f2f; color: white; }
+        .pf-btn[data-val="否"] { color: #d32f2f; }
+        .table-block { background: white; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 15px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.3s; }
+        .table-header { padding: 8px 15px; color: white; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1.1rem; }
+        .bg-purple { background: #673ab7; }
+        .bg-blue { background: #1a73e8; }
+        .bg-green { background: #0f9d58; }
+        .bg-orange { background: #ff9800; }
+        .cost-table { width: 100%; border-collapse: collapse; }
+        .cost-table th { background: #f8f9fa; padding: 6px 10px; text-align: left; font-size: 0.8rem; color: #555; border-bottom: 1px solid #ddd; }
+        .cost-table td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        .table-footer { background: #f8f9fa; font-weight: bold; font-size: 0.85rem; border-top: 1px solid #ddd; padding: 6px 15px; }
+        .photo-area { border: 1px dashed #ccc; border-radius: 4px; padding: 10px; background: white; margin-bottom: 15px; }
+        .drop-zone { border-radius: 4px; padding: 15px; text-align: center; color: #777; cursor: pointer; margin-bottom: 5px; background: #fafafa; display: block; border: 1px solid transparent; transition: 0.2s;}
+        .photo-item { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; border: 1px solid #eee; padding: 8px; border-radius: 4px; background: #fafafa; }
+        .photo-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; }
+        .delete-photo { background: none; border: none; color: #d32f2f; cursor: pointer; font-size: 1.2rem; padding: 5px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10; }
+        .modal { background: white; border-radius: 8px; width: 500px; max-width: 95%; box-shadow: 0 4px 12px rgba(0,0,0,0.2); overflow: hidden; max-height: 95vh; overflow-y: auto; }
+        .modal-header { padding: 12px 20px; color: white; font-weight: bold; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 15px 20px; }
+        .status-group { display: flex; gap: 10px; margin-top: 5px; }
+        .status-btn { flex: 1; padding: 10px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 4px; text-align: center; font-weight: bold; }
+        .status-btn.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+        .btn-submit-modal { color: white; border: none; padding: 10px; border-radius: 4px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; box-sizing: border-box; font-size: 0.95rem; display: flex; justify-content: center; align-items: center;}
+        .btn-cancel { background: transparent; border: none; color: #777; width: 100%; padding: 8px; cursor: pointer; margin-top: 2px; box-sizing: border-box; font-size: 0.9rem;}
+        .btn-quote { background: white; color: #1a73e8; border: 1px solid #1a73e8; border-radius: 20px; padding: 2px 10px; font-size: 0.75rem; cursor: pointer; }
+        .textarea-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px; }
+        .preview-box { border: 1px solid #333; padding: 15px; background: #fff; color: #000; font-family: serif; }
+        .preview-title { text-align: center; font-size: 1.5rem; border-bottom: 2px solid #000; margin-bottom: 10px; font-weight: bold; padding-bottom: 5px; }
+        .preview-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.85rem; }
+        .preview-table th, .preview-table td { border: 1px solid #000; padding: 4px 8px; text-align: left; }
+        .preview-table th { background: #eee; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .header-btns { display: flex; gap: 5px; }
+        .btn-prev-copy { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.7); border-radius: 4px; padding: 2px 10px; font-size: 0.8rem; cursor: pointer; }
+        .btn-add-row { background: white; color: #333; border: none; border-radius: 4px; padding: 2px 10px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
+        
+        .toast-container { 
+            position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%); 
+            background: #222; color: white; padding: 12px 24px; border-radius: 30px; 
+            display: flex; gap: 15px; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            z-index: 9999; font-weight: bold; font-size: 0.85rem; 
+            transition: 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); opacity: 0; 
+        }
+        .toast-container.show { bottom: 25px; opacity: 1; }
+        .btn-undo { 
+            background: #ff9800; color: white; border: none; padding: 4px 14px; 
+            border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 0.8rem; 
+            display: flex; align-items: center; gap: 3px; 
+        }
+        .btn-undo:hover { background: #e68a00; }
+
+        @media (max-width: 768px) {
+            body { height: auto; overflow-y: auto; }
+            .container { flex-direction: column; height: auto; }
+            .col-left, .col-center, .col-right { flex: none; width: 100%; height: auto; }
+            .col-left { max-height: 40vh; border-bottom: 4px solid #1a73e8; padding-bottom: 15px; overflow: hidden; } 
+            .col-center { border-bottom: 4px solid #1a73e8; }
+            .stack-on-mobile { flex-direction: column !important; }
+            .table-block { overflow-x: auto; }
+            .cost-table { min-width: 480px; }
+            .modal { width: 95vw !important; max-height: 90vh; margin: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="col-left" id="col-left-panel">
+        <h2>工事一覧</h2>
+        <div class="tabs">
+            <div class="tab active" id="tab-active" onclick="switchTab('稼働現場')">稼働現場</div>
+            <div class="tab" id="tab-completed" onclick="switchTab('終了現場')">終了現場</div>
+        </div>
+        
+        <div style="flex: 1; overflow-y: auto; padding-bottom: 10px;">
+            <div id="project-list"></div>
+            <button class="btn-add" onclick="openModal('addProjectModal')">＋ 新規登録</button>
+        </div>
+        
+        <div onclick="openDeletedHistory()" style="position: absolute; bottom: 5px; right: 10px; font-size: 16px; color: #aaa; opacity: 0.6; cursor: pointer; z-index: 10;" title="削除履歴">⚙️</div>
+    </div>
+
+    <div class="col-center disabled-section" id="report-section">
+        <div class="report-header">
+            <h2 class="report-title">🐾 日報 <span class="badge" id="selected-badge">未選択</span></h2>
+            <div>
+                <button class="btn-save" style="background:#00bcd4; margin-right:10px;" onclick="manualSync()" id="sync-btn">☁️ 同期</button>
+                <button class="btn-save" style="background:#ff9800; margin-right:10px;" onclick="copyAllFromPrev()" id="btn-prev-record">🔄 前回の記録を追加</button>
+                <button class="btn-save" onclick="saveReport()">💾 保存</button>
+            </div>
+        </div>
+        
+        <div class="flex-row" style="align-items: center; margin-bottom: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="date" id="report-date" class="form-control" style="max-width: 160px;" onchange="loadReport()">
+            </div>
+            <span id="warning-badge" style="display:none; color:#d32f2f; font-weight:bold; font-size:0.85rem; background:#ffeeee; padding:4px 8px; border-radius:4px; border: 1px solid #d32f2f;">⚠️ 担当者に通知が届いています</span>
+        </div>
+        
+        <div class="flex-row">
+            <div class="form-group flex-1">
+                <label>所長名 <span style="color:#d32f2f; font-size:0.75rem; background:#ffeeee; padding:1px 4px; border-radius:3px;">必須</span></label>
+                <select id="input-manager" class="form-control"></select>
+            </div>
+            <div class="form-group" style="width: 80px;">
+                <label>気温</label>
+                <input type="text" id="input-temp" class="form-control" placeholder="20℃">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>天気</label>
+            <div class="weather-group" id="weather-group">
+                <div class="w-btn active" onclick="setGroupActive(this, '.w-btn')">晴</div>
+                <div class="w-btn" onclick="setGroupActive(this, '.w-btn')">曇</div>
+                <div class="w-btn" onclick="setGroupActive(this, '.w-btn')">雨</div>
+                <div class="w-btn" onclick="setGroupActive(this, '.w-btn')">雪</div>
+            </div>
+        </div>
+        
+        <div class="textarea-header" style="margin-top:15px; margin-bottom:5px; border-bottom:2px solid #ccc; padding-bottom:5px;">
+            <div style="font-weight:bold;">作業所長巡視・所見</div>
+            <button class="btn-quote" onclick="copyPrevPatrol()">前回引用</button>
+        </div>
+        
+        <div class="flex-row stack-on-mobile">
+            <div class="form-group flex-1" style="background:white; padding:10px; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <label style="color:#1a73e8;">AM <input type="time" id="am-time" style="width:80px;"></label>
+                    <label>異常 <input type="radio" name="am-abnormal" value="有">有 <input type="radio" name="am-abnormal" value="無" checked>無</label>
+                </div>
+                <textarea id="am-text" class="form-control" rows="2" placeholder="午前の内容..."></textarea>
+            </div>
+            <div class="form-group flex-1" style="background:white; padding:10px; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between;">
+                    <label style="color:#1a73e8;">PM <input type="time" id="pm-time" style="width:80px;"></label>
+                    <label>異常 <input type="radio" name="pm-abnormal" value="有">有 <input type="radio" name="pm-abnormal" value="無" checked>無</label>
+                </div>
+                <textarea id="pm-text" class="form-control" rows="2" placeholder="午後の内容..."></textarea>
+            </div>
+        </div>
+        
+        <div style="font-weight:bold; margin-top:15px; margin-bottom:10px; border-bottom:2px solid #ccc;">社内検査</div>
+        <div class="flex-row stack-on-mobile">
+            <div class="form-group" style="width:230px;">
+                <label>検査種類</label>
+                <div class="weather-group" id="inspection-type">
+                    <div class="w-btn type-btn active" onclick="setGroupActive(this, '.type-btn')">なし</div>
+                    <div class="w-btn type-btn" onclick="setGroupActive(this, '.type-btn')">段階確認</div>
+                    <div class="w-btn type-btn" onclick="setGroupActive(this, '.type-btn')">工程内</div>
+                    <div class="w-btn type-btn" onclick="setGroupActive(this, '.type-btn')">最終</div>
+                </div>
+            </div>
+            <div class="form-group flex-1">
+                <label>検査者</label>
+                <select id="report-inspector" class="form-control"></select>
+            </div>
+            <div class="form-group" style="width:100px;">
+                <label>判定</label>
+                <div class="passfail-group" id="report-judge">
+                    <div class="pf-btn active" data-val="合" onclick="setGroupActive(this, '.pf-btn')">合</div>
+                    <div class="pf-btn" data-val="否" onclick="setGroupActive(this, '.pf-btn')">否</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="font-weight:bold; margin-top:15px; margin-bottom:5px;">📷 現場写真</div>
+        <div class="photo-area">
+            <label class="drop-zone" id="drop-zone">
+                タップまたはドラッグ＆ドロップで写真を追加
+                <input type="file" id="file-upload" accept="image/*" multiple style="display:none;">
+            </label>
+            <div id="preview-area"></div>
+        </div>
+
+        <div class="form-group">
+            <div class="textarea-header">
+                <label>明日の作業内容</label>
+                <button class="btn-quote" onclick="copyPrevText('text-tomorrow-work', 'tomorrow_work')">前回引用</button>
+            </div>
+            <textarea id="text-tomorrow-work" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+            <div class="textarea-header">
+                <label>顧客からの指示事項</label>
+                <button class="btn-quote" onclick="copyPrevText('text-customer', 'customer')">前回引用</button>
+            </div>
+            <textarea id="text-customer" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+            <div class="textarea-header">
+                <label>社内連絡</label>
+                <button class="btn-quote" onclick="copyPrevText('text-internal', 'internal')">前回引用</button>
+            </div>
+            <textarea id="text-internal" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+            <div class="textarea-header">
+                <label>安全指示・確認事項</label>
+                <button class="btn-quote" onclick="copyPrevText('text-safety', 'safety')">前回引用</button>
+            </div>
+            <textarea id="text-safety" class="form-control" rows="2"></textarea>
+        </div>
+    </div>
+
+    <div class="col-right disabled-section" id="costs-section">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 0.9rem; font-weight: bold; color: #333; background: #fff; padding: 8px 12px; border-radius: 4px; border: 1px solid #1a73e8; border-left: 5px solid #1a73e8; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center;">
+                👷‍♂️ 工事始まりから今: <span id="stat-days" style="color:#1a73e8; font-size:1.15rem; margin: 0 6px;">0</span> 日目 
+                <span style="color:#ccc; margin:0 8px;">|</span> 
+                無災害時間: <span id="stat-hours" style="color:#0f9d58; font-size:1.15rem; margin: 0 6px;">0</span> 時間
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button style="background:#0f9d58; color:white; border:none; padding:6px 15px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="openModal('excelModal')" id="btn-excel-export">Excel</button>
+                <button style="background:white; color:#333; border:1px solid #ccc; padding:6px 15px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="showPreview()" id="btn-preview">プレビュー</button>
+            </div>
+        </div>
+
+        <div class="table-block" id="block-work">
+            <div class="table-header bg-purple">
+                <span style="display:flex; align-items:center; gap:5px;">本日の作業(工種) <span style="background:#d32f2f; color:white; font-size:0.6rem; padding:2px 4px; border-radius:3px;">必須</span></span>
+                <div class="header-btns">
+                    <button class="btn-prev-copy" onclick="copyPrevTable('work')">前回追加</button>
+                    <button class="btn-add-row" onclick="openCreateModal('work')">＋</button>
+                </div>
+            </div>
+            <table class="cost-table" id="table-work">
+                <thead><tr><th>種別</th><th>施工箇所</th><th>作業内容</th><th style="width:30px;">🗑️</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div class="table-block">
+            <div class="table-header bg-blue">
+                <span>労務</span>
+                <div class="header-btns">
+                    <button class="btn-prev-copy" onclick="copyPrevTable('labor')">前回追加</button>
+                    <button class="btn-add-row" onclick="openCreateModal('labor')">＋</button>
+                </div>
+            </div>
+            <table class="cost-table" id="table-labor">
+                <thead><tr><th>業者名</th><th>役割</th><th style="width:40px;">人</th><th style="width:30px;">🗑️</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div class="table-footer" style="text-align:right;">
+                本日: <span id="total-labor-count" style="color:#1a73e8; font-weight:bold; margin-right: 15px;">0人</span> 
+                全体累計 (本日まで): <span id="project-labor-count" style="font-weight:bold;">0人</span>
+            </div>
+        </div>
+        
+        <div class="table-block">
+            <div class="table-header bg-green">
+                <span>重機</span>
+                <div class="header-btns">
+                    <button class="btn-prev-copy" onclick="copyPrevTable('machine')">前回追加</button>
+                    <button class="btn-add-row" onclick="openCreateModal('machine')">＋</button>
+                </div>
+            </div>
+            <table class="cost-table" id="table-machine">
+                <thead><tr><th>機械名</th><th>規格</th><th style="width:40px;">台</th><th style="width:30px;">🗑️</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <div class="table-footer" style="text-align:right;">
+                本日: <span id="total-machine-count" style="color:#0f9d58; font-weight:bold; margin-right: 15px;">0台</span> 
+                全体累計 (本日まで): <span id="project-machine-count" style="font-weight:bold;">0台</span>
+            </div>
+        </div>
+        
+        <div class="table-block">
+            <div class="table-header bg-orange">
+                <span>資材・受入検査</span>
+                <div class="header-btns">
+                    <button class="btn-prev-copy" onclick="copyPrevTable('material')">前回追加</button>
+                    <button class="btn-add-row" onclick="openCreateModal('material')">＋</button>
+                </div>
+            </div>
+            <table class="cost-table" id="table-material">
+                <thead><tr><th>資材詳細</th><th style="width:50px;">数</th><th style="width:40px;">判定</th><th style="width:30px;">🗑️</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- モーダル群 -->
+<div class="modal-overlay" id="projectActionModal">
+    <div class="modal" style="width: 300px;">
+        <div class="modal-header" style="background:#555;">工事の操作</div>
+        <div class="modal-body" style="text-align: center;">
+            <p id="action-project-name" style="font-weight:bold; margin-bottom: 15px; color:#333; word-break:break-all;"></p>
+            <input type="hidden" id="action-project-no">
+            <button class="btn-submit-modal" style="background:#00bcd4; margin-bottom:10px;" onclick="moveProjectToCompleted()" id="btn-move-completed">📁 終了現場に移動</button>
+            <button class="btn-submit-modal" style="background:#d32f2f; margin-bottom:10px;" onclick="executeDeleteProject()">🗑️ リストから削除</button>
+            <button class="btn-cancel" onclick="closeModal('projectActionModal')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deletedHistoryModal">
+    <div class="modal" style="width: 520px;">
+        <div class="modal-header" style="background:#555;">🗑️ 削除履歴 (復元)</div>
+        <div class="modal-body" style="padding-bottom:5px;">
+            <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+                <button onclick="filterHistory('all')" id="hf-all" class="hf-btn hf-active" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:#555; color:white; cursor:pointer;">すべて</button>
+                <button onclick="filterHistory('project')" id="hf-project" class="hf-btn" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer;">🏗️ 工事</button>
+                <button onclick="filterHistory('work')" id="hf-work" class="hf-btn" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer;">🟣 作業</button>
+                <button onclick="filterHistory('labor')" id="hf-labor" class="hf-btn" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer;">🔵 労務</button>
+                <button onclick="filterHistory('machine')" id="hf-machine" class="hf-btn" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer;">🟢 重機</button>
+                <button onclick="filterHistory('material')" id="hf-material" class="hf-btn" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #ccc; background:white; cursor:pointer;">🟠 資材</button>
+                <button onclick="clearAllHistory()" style="font-size:0.75rem; padding:3px 10px; border-radius:20px; border:1px solid #d32f2f; background:white; color:#d32f2f; cursor:pointer; margin-left:auto;">🗑️ 全消去</button>
+            </div>
+            <div id="deleted-project-list" style="max-height: 400px; overflow-y: auto; margin-bottom: 10px; border:1px solid #ccc; border-radius:4px;"></div>
+            <button class="btn-cancel" onclick="closeModal('deletedHistoryModal')">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="excelModal">
+    <div class="modal" style="width: 380px;">
+        <div class="modal-header bg-green">Excel 出力</div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>出力する範囲</label>
+                <select id="export-type" class="form-control" onchange="toggleExcelOptions()">
+                    <option value="1day">1日分（表示中の日付のみ）</option>
+                    <option value="month">1か月分（月ごと）</option>
+                    <option value="week">1週間分（週ごと）</option>
+                </select>
+            </div>
+            <div class="flex-row stack-on-mobile" id="excel-range-group" style="display:none; align-items: flex-end;">
+                <div class="form-group flex-1">
+                    <label>対象の月</label>
+                    <select id="export-month" class="form-control"></select>
+                </div>
+                <div class="form-group flex-1" id="excel-week-group" style="display:none;">
+                    <label>対象の週</label>
+                    <select id="export-week" class="form-control">
+                        <option value="1">第1週 (1日〜7日)</option>
+                        <option value="2">第2週 (8日〜14日)</option>
+                        <option value="3">第3週 (15日〜21日)</option>
+                        <option value="4">第4週 (22日〜28日)</option>
+                        <option value="5">第5週 (29日〜月末)</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-submit-modal bg-green" onclick="downloadExcel()">ダウンロード</button>
+            <button class="btn-cancel" onclick="closeModal('excelModal')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="previewModal">
+    <div class="modal" style="width:850px; max-width:95%;">
+        <div class="modal-header" style="background:#555;">作業日報 プレビュー</div>
+        <div class="modal-body preview-box" id="preview-content"></div>
+        <div class="modal-body" style="padding-top:0;">
+            <button class="btn-cancel" style="background:#eee; padding:10px; border-radius:4px;" onclick="closeModal('previewModal')">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="addProjectModal">
+    <div class="modal">
+        <div class="modal-header" style="background:#333;">新規工事の登録</div>
+        <div class="modal-body">
+            <div class="form-group"><label>工事番号</label><input type="text" id="new-no" class="form-control"></div>
+            <div class="form-group"><label>工事名</label><input type="text" id="new-name" class="form-control"></div>
+            <div class="form-group"><label>工期月日</label><input type="date" id="new-start-date" class="form-control"></div>
+            <div class="flex-row">
+                <div class="form-group flex-1"><label>担当者 1</label><select id="new-manager1" class="form-control"></select></div>
+                <div class="form-group flex-1"><label>担当者 2</label><select id="new-manager2" class="form-control"></select></div>
+                <div class="form-group flex-1"><label>担当者 3</label><select id="new-manager3" class="form-control"></select></div>
+            </div>
+            <div class="form-group">
+                <label>状態</label>
+                <div class="status-group">
+                    <div class="status-btn active" id="status-btn-work" onclick="setNewStatus('稼働現場')">稼働現場</div>
+                    <div class="status-btn" id="status-btn-complete" onclick="setNewStatus('終了現場')">完了現場</div>
+                </div>
+                <input type="hidden" id="new-status" value="稼働現場">
+            </div>
+            <button id="btn-submit-project" class="btn-submit-modal" style="background:#0f9d58;" onclick="submitProject()">登録する</button>
+            <button class="btn-cancel" onclick="closeModal('addProjectModal')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="photoEnlargeModal" onclick="closeModal('photoEnlargeModal')">
+    <div class="modal" style="width:90vw; background:transparent; box-shadow:none; text-align:center;">
+        <img id="enlarged-img" src="" style="max-width:100%; max-height:85vh; border-radius:8px; border:2px solid white;">
+        <p style="color:white; font-weight:bold; margin-top:10px;">タップして閉じる</p>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-work">
+    <div class="modal">
+        <div class="modal-header bg-purple"><div>作業 追加・編集</div></div>
+        <div class="modal-body">
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>五十音</label><select id="work-kana" class="form-control" onchange="filterWork()"></select></div>
+                <div class="form-group flex-1"><label>種別</label><input type="text" id="work-name" class="form-control" list="dl-work-name" placeholder="選択・入力"><datalist id="dl-work-name"></datalist></div>
+            </div>
+            <div class="form-group"><label>施工箇所</label><input type="text" id="work-place" class="form-control"></div>
+            <div class="form-group"><label>作業内容</label><input type="text" id="work-detail" class="form-control"></div>
+            <button class="btn-submit-modal bg-purple" onclick="appendRow('work')">決定</button>
+            <button class="btn-cancel" onclick="closeModal('modal-work')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-labor">
+    <div class="modal">
+        <div class="modal-header bg-blue"><div>労務 追加・編集</div></div>
+        <div class="modal-body">
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>業者 50音</label><select id="labor-kana" class="form-control" onchange="filterLaborCompany()"></select></div>
+                <div class="form-group flex-1"><label>業者名</label><input type="text" id="labor-company" class="form-control" list="dl-labor-company" placeholder="選択・入力"><datalist id="dl-labor-company"></datalist></div>
+            </div>
+            <div class="form-group"><label>役割</label><input type="text" id="labor-role" class="form-control" list="dl-labor-role" placeholder="選択・入力"><datalist id="dl-labor-role"></datalist></div>
+            <div class="form-group"><label>人数</label><input type="number" id="labor-count" class="form-control" value="1" step="0.5"></div>
+            <button class="btn-submit-modal bg-blue" onclick="appendRow('labor')">決定</button>
+            <button class="btn-cancel" onclick="closeModal('modal-labor')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-machine">
+    <div class="modal">
+        <div class="modal-header bg-green"><div>重機 追加・編集</div></div>
+        <div class="modal-body">
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>五十音</label><select id="machine-kana" class="form-control" onchange="filterMachineName()"></select></div>
+                <div class="form-group flex-1"><label>機械名</label><input type="text" id="machine-name" class="form-control" list="dl-machine-name" onchange="filterMachineSpec()" placeholder="選択・入力"><datalist id="dl-machine-name"></datalist></div>
+            </div>
+            <div class="form-group"><label>規格種別</label><input type="text" id="machine-spec" class="form-control" list="dl-machine-spec" placeholder="選択・入力"><datalist id="dl-machine-spec"></datalist></div>
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>業者五十音</label><select id="mac-co-kana" class="form-control" onchange="filterMacCompany()"></select></div>
+                <div class="form-group flex-1"><label>会社名</label><input type="text" id="machine-company" class="form-control" list="dl-machine-company" placeholder="選択・入力"><datalist id="dl-machine-company"></datalist></div>
+            </div>
+            <div class="form-group"><label>台数</label><input type="number" id="machine-count" class="form-control" value="1" step="0.5"></div>
+            <button class="btn-submit-modal bg-green" onclick="appendRow('machine')">決定</button>
+            <button class="btn-cancel" onclick="closeModal('modal-machine')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-material">
+    <div class="modal">
+        <div class="modal-header bg-orange"><div>資材 追加・編集</div></div>
+        <div class="modal-body">
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>五十音</label><select id="material-kana" class="form-control" onchange="filterMaterialType()"></select></div>
+                <div class="form-group flex-1"><label>資材種別</label><input type="text" id="material-type" class="form-control" list="dl-material-type" onchange="filterMaterialName()" placeholder="選択・入力"><datalist id="dl-material-type"></datalist></div>
+            </div>
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>資材名</label><input type="text" id="material-name" class="form-control" list="dl-material-name" onchange="filterMaterialSpec()" placeholder="選択・入力"><datalist id="dl-material-name"></datalist></div>
+                <div class="form-group flex-1"><label>規格</label><input type="text" id="material-spec" class="form-control" list="dl-material-spec" placeholder="選択・入力"><datalist id="dl-material-spec"></datalist></div>
+            </div>
+            <div class="flex-row stack-on-mobile">
+                <div class="form-group flex-1"><label>数量</label><input type="number" id="material-count" class="form-control" value="1"></div>
+                <div class="form-group flex-1"><label>納入五十音</label><select id="mat-co-kana" class="form-control" onchange="filterMatCompany()"></select></div>
+                <div class="form-group flex-1"><label>業者名</label><input type="text" id="material-supplier" class="form-control" list="dl-material-supplier" placeholder="選択・入力"><datalist id="dl-material-supplier"></datalist></div>
+            </div>
+            <div class="flex-row" style="align-items:flex-end;">
+                <div class="form-group flex-1"><label>測定値</label><input type="text" id="material-measured" class="form-control" placeholder="例: 12.5mm"></div>
+                <div class="form-group" style="width:80px;">
+                    <label>判定</label>
+                    <div class="passfail-group" style="height:28px;">
+                        <div class="pf-btn active" data-val="合" onclick="setGroupActive(this, '.pf-btn')" style="line-height:28px; padding:0;">合</div>
+                        <div class="pf-btn" data-val="否" onclick="setGroupActive(this, '.pf-btn')" style="line-height:28px; padding:0;">否</div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-submit-modal bg-orange" onclick="appendRow('material')">決定</button>
+            <button class="btn-cancel" onclick="closeModal('modal-material')">キャンセル</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-bar" class="toast-container">
+    <span id="toast-msg">行を削除しました</span>
+    <button class="btn-undo" onclick="executeUndo()">↩️ 元に戻す</button>
+</div>
+
+<script>
+    let masterData = { projects:[], staff:[], inspectors:["嶺岸", "熊谷", "江連"], progress:[], company:[], role:[], machine:[], material:[] }; 
+    let currentFilter = '稼働現場'; 
+    let selectedProjectNo = null; 
+    let editingRow = null;
+    let currentManager = ""; 
+    
+    let lastDeletedRow = null; 
+    let lastChangedProject = null; 
+    let lastDeletedProject = null; 
+    let toastTimeout = null;
+
+    document.getElementById('report-date').value = new Date().toISOString().split('T')[0];
+    window.onload = async function() { 
+        loadData(); 
+        populateExcelMonths(); 
+    };
+
+    function getGlob(k) { return JSON.parse(localStorage.getItem('glob_'+k) || '[]'); }
+    function getProjData(k) { 
+        let glob = JSON.parse(localStorage.getItem('glob_'+k) || '[]');
+        let proj = JSON.parse(localStorage.getItem('p_'+selectedProjectNo+'_'+k) || '[]');
+        return unique(glob.concat(proj));
+    }
+
+    function addProjData(k, v) {
+        let glob = JSON.parse(localStorage.getItem('glob_' + k) || '[]');
+        if (!glob.includes(v)) {
+            glob.push(v);
+            localStorage.setItem('glob_' + k, JSON.stringify(glob));
+            fetch('/api/push_key', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({key: 'glob_' + k, value: JSON.stringify(glob)})
+            }).catch(e => {});
+        }
+    }
+
+    function setSharedItem(k, v) {
+        localStorage.setItem(k, v);
+        fetch('/api/push_key', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key: k, value: String(v)}) }).catch(e => {});
+    }
+
+    function unique(arr) { return [...new Set(arr)].filter(v => v).sort((a, b) => String(a).localeCompare(String(b), 'ja')); }
+    function strToNum(str) { 
+        if(!str) return 0; 
+        let s = String(str).replace(/,/g, '').replace(/¥/g, '').replace(/\\/g, '').replace(/\s/g, ''); 
+        let match = s.match(/-?\d+(\.\d+)?/); 
+        return match ? Number(match[0]) : 0; 
+    }
+    function formatNum(n) { return Number.isInteger(Number(n)) ? Number(n) : Number(n).toFixed(1); }
+
+    function populate(id, items, addAll = false) {
+        const el = document.getElementById(id); 
+        if(!el) return;
+        if (el.tagName === 'INPUT' && el.hasAttribute('list')) {
+            const dl = document.getElementById(el.getAttribute('list'));
+            if (dl) { 
+                let html = ''; 
+                if(addAll) html += '<option value="すべて"></option>'; 
+                items.forEach(i => html += `<option value="${i}"></option>`); 
+                dl.innerHTML = html; 
+            }
+        } else {
+            let html = '<option value="">選択</option>'; 
+            if(addAll) html += '<option value="すべて">すべて</option>'; 
+            items.forEach(i => html += `<option value="${i}">${i}</option>`); 
+            el.innerHTML = html;
+        }
+    }
+    
+    function populateExcelMonths() {
+        const el = document.getElementById('export-month'); 
+        if (!el || el.options.length > 0) return;
+        let html = ''; 
+        const now = new Date();
+        for (let i = 0; i < 12; i++) {
+            let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            let yyyy = d.getFullYear(); let mm = String(d.getMonth() + 1).padStart(2, '0');
+            html += `<option value="${yyyy}-${mm}">${yyyy}年 ${d.getMonth() + 1}月</option>`;
+        }
+        el.innerHTML = html;
+    }
+
+    function toggleExcelOptions() {
+        const type = document.getElementById('export-type').value;
+        const rangeGrp = document.getElementById('excel-range-group'); 
+        const weekGrp = document.getElementById('excel-week-group');
+        if (type === '1day') { rangeGrp.style.display = 'none'; } 
+        else if (type === 'month') { rangeGrp.style.display = 'flex'; weekGrp.style.display = 'none'; } 
+        else if (type === 'week') { rangeGrp.style.display = 'flex'; weekGrp.style.display = 'block'; }
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function setGroupActive(el, cls) { 
+        el.parentElement.querySelectorAll(cls).forEach(i => i.classList.remove('active')); 
+        el.classList.add('active'); 
+    }
+
+    function showUndoToast(msg, mode) {
+        const msgEl = document.getElementById('toast-msg');
+        const btn = document.querySelector('.btn-undo');
+        const bar = document.getElementById('toast-bar');
+
+        msgEl.innerText = msg;
+        if(mode === 'warning') {
+            bar.style.background = '#d32f2f'; btn.style.display = 'none'; 
+        } else {
+            bar.style.background = '#222'; btn.style.display = 'flex';
+        }
+        bar.classList.add('show');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { bar.classList.remove('show'); }, 6000);
+    }
+
+    function executeUndo() {
+        const bar = document.getElementById('toast-bar');
+        bar.classList.remove('show');
+        
+        if (lastDeletedRow) {
+            const t = lastDeletedRow.type; 
+            const tr = document.createElement('tr');
+            tr.innerHTML = lastDeletedRow.innerHTML; 
+            tr.setAttribute('onclick', `editRow(this, '${t}')`);
+            for (let k in lastDeletedRow.attributes) { 
+                if (lastDeletedRow.attributes[k]) { tr.setAttribute(k, lastDeletedRow.attributes[k]); }
+            }
+            const lastTd = tr.querySelector('td:last-child');
+            if (lastTd) { lastTd.setAttribute('onclick', `event.stopPropagation(); deleteTableRow(this, '${t}');`); }
+            document.querySelector(`#table-${t} tbody`).appendChild(tr);
+            updateGrandTotal(t); lastDeletedRow = null;
+        } 
+        else if (lastChangedProject) {
+            const pNo = lastChangedProject.no; const oldStatus = lastChangedProject.from;
+            fetch('/api/update_status', { 
+                method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ project_no: String(pNo), new_status: oldStatus }) 
+            }).then(() => { setSharedItem(`status_${pNo}`, oldStatus); loadData(); });
+            lastChangedProject = null;
+        }
+        else if (lastDeletedProject) {
+            let hidden = JSON.parse(localStorage.getItem('hidden_projects') || '[]');
+            hidden = hidden.filter(p => (typeof p === 'object' ? p.no : String(p)) !== lastDeletedProject.no);
+            localStorage.setItem('hidden_projects', JSON.stringify(hidden));
+            lastDeletedProject = null;
+            renderList();
+        }
+    }
+
+    function deleteTableRow(el, type) {
+        const tr = el.parentElement; 
+        lastChangedProject = null; lastDeletedProject = null;
+        const attrs = {
+            'data-name': tr.getAttribute('data-name'), 'data-place': tr.getAttribute('data-place'), 'data-detail': tr.getAttribute('data-detail'),
+            'data-company': tr.getAttribute('data-company'), 'data-role': tr.getAttribute('data-role'), 'data-count': tr.getAttribute('data-count'),
+            'data-spec': tr.getAttribute('data-spec'), 'data-type': tr.getAttribute('data-type'), 'data-supplier': tr.getAttribute('data-supplier'),
+            'data-measured': tr.getAttribute('data-measured'), 'data-judge': tr.getAttribute('data-judge')
+        };
+        lastDeletedRow = { type: type, innerHTML: tr.innerHTML, attributes: attrs };
+
+        let label = "項目"; 
+        if(type==='work') label="作業"; if(type==='labor') label="労務"; if(type==='machine') label="重機機械"; if(type==='material') label="資材";
+        
+        let summary = '';
+        if(type==='work') summary = (attrs['data-name']||'') + ' / ' + (attrs['data-place']||'') + ' / ' + (attrs['data-detail']||'');
+        if(type==='labor') summary = (attrs['data-company']||'') + ' / ' + (attrs['data-role']||'') + ' / ' + (attrs['data-count']||'')+'人';
+        if(type==='machine') summary = (attrs['data-name']||'') + ' / ' + (attrs['data-spec']||'') + ' / ' + (attrs['data-count']||'')+'台';
+        if(type==='material') summary = (attrs['data-name']||'') + ' ' + (attrs['data-spec']||'') + ' / ' + (attrs['data-count']||'') + ' / ' + (attrs['data-judge']||'');
+        
+        const projectName = document.getElementById('selected-badge').innerText;
+        const date = document.getElementById('report-date').value;
+        addDeleteHistory({ kind: type, label: label, summary: summary, project: projectName, date: date, innerHTML: tr.innerHTML, attributes: attrs });
+
+        tr.remove(); updateGrandTotal(type);
+        showUndoToast(`❌ ${label}の入力を削除しました`, "row");
+    }
+
+    function openProjectAction(no, name, status) {
+        document.getElementById('action-project-no').value = no;
+        document.getElementById('action-project-name').innerText = `NO.${no} ${name}`;
+        document.getElementById('action-project-name').setAttribute('data-name', name);
+        const btnMove = document.getElementById('btn-move-completed');
+        if (status === '稼働現場') { btnMove.style.display = 'block'; } else { btnMove.style.display = 'none'; }
+        openModal('projectActionModal');
+    }
+
+    async function moveProjectToCompleted() {
+        const no = document.getElementById('action-project-no').value;
+        const name = document.getElementById('action-project-name').getAttribute('data-name');
+        try {
+            await fetch('/api/update_status', { 
+                method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({ project_no: String(no), new_status: '終了現場' }) 
+            });
+            lastDeletedRow = null; lastDeletedProject = null;
+            lastChangedProject = { no: String(no), from: '稼働現場', to: '終了現場' };
+            setSharedItem(`status_${no}`, '終了現場'); 
+            if (selectedProjectNo === String(no)) { 
+                selectedProjectNo = null; 
+                document.getElementById('report-section').classList.add('disabled-section'); 
+                document.getElementById('costs-section').classList.add('disabled-section'); 
+                document.getElementById('selected-badge').innerText = '未選択'; 
+            }
+            await loadData(); closeModal('projectActionModal');
+            showUndoToast(`📁 「${name}」を終了現場に移動しました`, "project");
+        } catch (e) { alert('エラーが発生しました。'); }
+    }
+
+    function executeDeleteProject() {
+        const no = document.getElementById('action-project-no').value;
+        const name = document.getElementById('action-project-name').getAttribute('data-name');
+        deleteProject(no, name); closeModal('projectActionModal');
+    }
+
+    function deleteProject(no, name) {
+        let hidden = JSON.parse(localStorage.getItem('hidden_projects') || '[]');
+        hidden = hidden.filter(p => (typeof p === 'object' ? p.no : String(p)) !== String(no));
+        
+        let combined = [...(masterData.projects || [])];
+        let lp = JSON.parse(localStorage.getItem("local_projects") || "[]");
+        lp.forEach(p => { if(!combined.find(c => c.no === p.no)) combined.push(p); });
+        
+        let detail = combined.find(c => String(c.no) === String(no));
+        let manager = detail ? (detail.manager || "") : "";
+        let status = localStorage.getItem("status_"+no) || (detail ? (detail.status || "") : "");
+        
+        hidden.push({ no: String(no), name: name, manager: manager, status: status });
+        localStorage.setItem("hidden_projects", JSON.stringify(hidden));
+        
+        if (selectedProjectNo === String(no)) {
+            selectedProjectNo = null;
+            document.getElementById("report-section").classList.add("disabled-section");
+            document.getElementById("costs-section").classList.add("disabled-section");
+            document.getElementById("selected-badge").innerText = "未選択";
+        }
+        
+        lastDeletedRow = null; lastChangedProject = null; lastDeletedProject = { no: String(no), name: name };
+        renderList();
+        addDeleteHistory({ kind: 'project', label: '工事', summary: 'NO.'+String(no)+' '+name, project: name, date: new Date().toISOString().split('T')[0], no: String(no), manager: manager, status: status });
+        showUndoToast("🗑️ 工事「"+name+"」を一覧から削除しました", "project_del");
+    }
+
+    // --- 削除履歴 ---
+    let currentHistoryFilter = 'all';
+
+    function addDeleteHistory(entry) {
+        let hist = JSON.parse(localStorage.getItem('delete_history') || '[]');
+        entry.id = Date.now().toString() + Math.random().toString(36).substr(2, 5); 
+        entry.ts = new Date().toLocaleString('ja-JP');
+        hist.unshift(entry); 
+        if(hist.length > 200) hist = hist.slice(0, 200); 
+        localStorage.setItem('delete_history', JSON.stringify(hist));
+    }
+
+    function filterHistory(kind) {
+        currentHistoryFilter = kind;
+        document.querySelectorAll('.hf-btn').forEach(b => { b.style.background = 'white'; b.style.color = '#333'; });
+        const active = document.getElementById('hf-' + kind);
+        if(active) { active.style.background = '#555'; active.style.color = 'white'; }
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const listEl = document.getElementById('deleted-project-list');
+        let hist = JSON.parse(localStorage.getItem('delete_history') || '[]');
+        let filtered = currentHistoryFilter === 'all' ? hist : hist.filter(h => h.kind === currentHistoryFilter);
+
+        if(filtered.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; color:#999; margin: 15px 0;">削除されたデータはありません</p>'; return;
+        }
+
+        const kindColor = { project:'#555', work:'#673ab7', labor:'#1a73e8', machine:'#0f9d58', material:'#ff9800' };
+        const kindIcon  = { project:'🏗️', work:'🟣', labor:'🔵', machine:'🟢', material:'🟠' };
+
+        let html = '';
+        filtered.forEach(h => {
+            const color = kindColor[h.kind] || '#555';
+            const icon  = kindIcon[h.kind]  || '🗑️';
+            const isProject = (h.kind === 'project');
+            const restoreCommand = isProject ? `processRestoreProject('${h.no}', '${h.id}')` : `restoreRowFromHistory('${h.id}')`;
+
+            html += `<div style="padding:10px 12px; border-bottom:1px solid #eee; display:flex; gap:8px; align-items:flex-start;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:3px;">
+                        <span style="font-size:0.7rem; font-weight:bold; color:white; background:${color}; padding:1px 7px; border-radius:20px;">${icon} ${h.label}</span>
+                        <span style="font-size:0.7rem; color:#999;">${h.ts}</span>
+                        ${h.project ? `<span style="font-size:0.7rem; color:#1a73e8;">${h.project}</span>` : ''}
+                        ${h.date ? `<span style="font-size:0.7rem; color:#999;">${h.date}</span>` : ''}
+                    </div>
+                    <div style="font-size:0.85rem; color:#333; word-break:break-all;">${h.summary || ''}</div>
+                    ${h.manager ? `<div style="font-size:0.75rem; color:#1a73e8; margin-top:2px;">担当: ${h.manager}</div>` : ''}
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+                    <button onclick="${restoreCommand}" style="background:#0f9d58; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:0.8rem; white-space:nowrap;">復元</button>
+                    <button onclick="removeHistoryEntryById('${h.id}')" style="background:white; color:#d32f2f; border:1px solid #d32f2f; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; white-space:nowrap;">消去</button>
+                </div>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+    }
+
+    function removeHistoryEntryById(id, silent = false) {
+        let hist = JSON.parse(localStorage.getItem('delete_history') || '[]');
+        hist = hist.filter(h => h.id !== id);
+        localStorage.setItem('delete_history', JSON.stringify(hist));
+        if(!silent) renderHistory();
+    }
+
+    function clearAllHistory() {
+        if(confirm('削除履歴をすべて消去しますか？')) { localStorage.removeItem('delete_history'); renderHistory(); }
+    }
+
+    function openDeletedHistory() {
+        currentHistoryFilter = 'all';
+        document.querySelectorAll('.hf-btn').forEach(b => { b.style.background = 'white'; b.style.color = '#333'; });
+        const allBtn = document.getElementById('hf-all');
+        if(allBtn) { allBtn.style.background = '#555'; allBtn.style.color = 'white'; }
+        renderHistory(); openModal('deletedHistoryModal');
+    }
+
+    function processRestoreProject(no, histId) {
+        let hidden = JSON.parse(localStorage.getItem('hidden_projects') || '[]');
+        hidden = hidden.filter(p => (typeof p === 'object' ? p.no : String(p)) !== String(no));
+        localStorage.setItem('hidden_projects', JSON.stringify(hidden));
+        removeHistoryEntryById(histId, true); 
+        renderList(); renderHistory(); 
+        alert("🎉 工事を一覧に復元しました！");
+    }
+
+    function restoreRowFromHistory(histId) {
+        let hist = JSON.parse(localStorage.getItem('delete_history') || '[]');
+        let h = hist.find(item => item.id === histId);
+        if(!h) return;
+
+        const currentPName = document.getElementById('selected-badge').innerText;
+        const currentDate = document.getElementById('report-date').value;
+
+        if(currentPName !== h.project || currentDate !== h.date) {
+            alert(`⚠️ このデータは【${h.project}】の【${h.date}】の画面でのみ復元できます。\n左のリストから該当の工事を選び、カレンダーの日付を合わせてからもう一度お試しください。`); return;
+        }
+
+        const t = h.kind;
+        const tr = document.createElement('tr');
+        tr.innerHTML = h.innerHTML;
+        tr.setAttribute('onclick', `editRow(this, '${t}')`);
+        
+        for (let k in h.attributes) { if (h.attributes[k]) tr.setAttribute(k, h.attributes[k]); }
+        const lastTd = tr.querySelector('td:last-child');
+        if (lastTd) { lastTd.setAttribute('onclick', `event.stopPropagation(); deleteTableRow(this, '${t}');`); }
+        
+        document.querySelector(`#table-${t} tbody`).appendChild(tr);
+        updateGrandTotal(t);
+        removeHistoryEntryById(histId, true); 
+        renderHistory();
+        alert(`🎉 ${h.label}のデータを画面に復元しました！\n（※完全に記憶させるには右上の「💾 保存」を押してください）`);
+    }
+
+    // --- 工事リスト描画 ---
+    function renderList() {
+        const d = document.getElementById('project-list'); d.innerHTML = ''; 
+        if(!masterData.projects) return;
+        
+        let combined = [...masterData.projects];
+        let lp = JSON.parse(localStorage.getItem('local_projects') || '[]');
+        lp.forEach(p => { if(!combined.find(c => c.no === p.no)) combined.push(p); });
+        
+        combined.forEach(p => { 
+            let localStatus = localStorage.getItem(`status_${p.no}`); 
+            if(localStatus) p.status = localStatus; 
+        });
+        
+        const hiddenProjects = JSON.parse(localStorage.getItem('hidden_projects') || '[]');
+        const hiddenIds = hiddenProjects.map(p => typeof p === 'object' ? p.no : String(p));
+        const list = combined.filter(p => p.status === currentFilter && !hiddenIds.includes(String(p.no)));
+        
+        if (list.length === 0) { 
+            d.innerHTML = '<p style="color: #777; text-align:center; padding-top:10px;">表示する工事がありません</p>'; return; 
+        }
+        
+        list.forEach(p => {
+            const c = document.createElement('div'); 
+            c.className = `project-card ${selectedProjectNo === p.no ? 'active' : ''}`;
+            const managerDisp = p.manager ? `<span style="font-size:0.75rem; color:#1a73e8; background:#e8f0fe; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:bold; white-space:nowrap;">${p.manager}</span>` : "";
+            
+            c.innerHTML = `
+                <b>NO. ${p.no}</b>
+                <div style="display:flex; align-items:center; margin-top:3px;">
+                    <span style="font-size:0.85rem; color:#666; word-break:break-all;">${p.name}</span>${managerDisp}
+                </div>`; 
+            c.onclick = () => selectProject(p.no, p.name, p.manager);
+            c.ondblclick = () => openProjectAction(p.no, p.name, p.status);
+            d.appendChild(c);
+        });
+    }
+    
+    function switchTab(s) { 
+        currentFilter = s; 
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
+        document.getElementById(s === '稼働現場' ? 'tab-active' : 'tab-completed').classList.add('active'); 
+        renderList(); 
+    }
+    
+    function selectProject(no, name, manager = "") {
+        selectedProjectNo = no; currentManager = manager; 
+        document.getElementById('selected-badge').innerText = name; 
+        document.getElementById('report-section').classList.remove('disabled-section'); 
+        document.getElementById('costs-section').classList.remove('disabled-section');
+        
+        document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.project-card').forEach(c => { 
+            if(c.innerHTML.includes(`NO. ${no}`)) { c.classList.add('active'); } 
+        }); 
+        loadReport();
+    }
+    
+    function setNewStatus(statusStr) { 
+        document.getElementById('new-status').value = statusStr; 
+        document.getElementById('status-btn-work').classList.toggle('active', statusStr === '稼働現場'); 
+        document.getElementById('status-btn-complete').classList.toggle('active', statusStr === '終了現場'); 
+    }
+
+    // --- データ読み込み ---
+    async function loadData() {
+        try { 
+            const syncRes = await fetch('/api/pull_all?t=' + new Date().getTime()); 
+            const syncData = await syncRes.json(); 
+            if(syncData.status === 'success') { for(let k in syncData.data) { localStorage.setItem(k, syncData.data[k]); } } 
+        } catch(e) {}
+        
+        try {
+            const res = await fetch('/api/init_data?t=' + new Date().getTime()); 
+            const serverData = await res.json(); 
+            masterData.projects = serverData.projects || [];
+            masterData.staff = serverData.staff || [];
+            masterData.inspectors = serverData.inspectors || ["嶺岸", "熊谷", "江連", "発注者", "検査者"];
+            masterData.progress = serverData.progress || [];
+            masterData.company = serverData.company || [];
+            masterData.role = serverData.role || [];
+            masterData.machine = serverData.machine || [];
+            masterData.material = serverData.material || [];
+            renderList();
+            populate('input-manager', unique(masterData.staff)); 
+            populate('new-manager1', unique(masterData.staff)); 
+            populate('new-manager2', unique(masterData.staff)); 
+            populate('new-manager3', unique(masterData.staff));
+            populate('report-inspector', masterData.inspectors); 
+            populate('work-kana', unique(masterData.progress.map(r => r[0])), true); 
+            populate('labor-kana', unique(masterData.company.map(r => r[0])), true);
+            populate('machine-kana', unique(masterData.machine.map(r => r[0])), true); 
+            populate('mac-co-kana', unique(masterData.company.map(r => r[0])), true); 
+            populate('material-kana', unique(masterData.material.map(r => r[0])), true); 
+            populate('mat-co-kana', unique(masterData.company.map(r => r[0])), true);
+            let roles = masterData.role.map(r => r[0]).concat(getGlob('role')); 
+            populate('labor-role', unique(roles));
+        } catch (e) { console.error(e); renderList(); }
+    }
+
+    async function manualSync() {
+        const btn = document.getElementById('sync-btn'); 
+        if(btn) btn.innerText = "⏳ 同期中...";
+        let clientData = {}; 
+        for (let i = 0; i < localStorage.length; i++) { 
+            let key = localStorage.key(i); clientData[key] = localStorage.getItem(key); 
+        }
+        try {
+            await fetch('/api/push_all', { 
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({storage: clientData}) 
+            });
+            const syncRes = await fetch('/api/pull_all?t=' + new Date().getTime()); 
+            const syncData = await syncRes.json();
+            if(syncData.status === 'success') { 
+                for(let k in syncData.data) { localStorage.setItem(k, syncData.data[k]); } 
+            }
+            alert("パソコンとの完全同期が完了しました！"); loadReport();
+        } catch(e) { alert("通信エラー：同期できませんでした。"); }
+        if(btn) btn.innerText = "☁️ 同期";
+    }
+
+    // --- フィルター関数群 ---
+    function filterWork() { 
+        const k = document.getElementById('work-kana').value; 
+        let list = (masterData.progress || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('work_name')); populate('work-name', unique(list)); 
+    }
+    function filterLaborCompany() { 
+        const k = document.getElementById('labor-kana').value; 
+        let list = (masterData.company || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('company')); populate('labor-company', unique(list)); 
+    }
+    function filterMachineName() { 
+        const k = document.getElementById('machine-kana').value; 
+        let list = (masterData.machine || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('machine_name')); populate('machine-name', unique(list)); filterMachineSpec(); 
+    }
+    function filterMachineSpec() { 
+        const n = document.getElementById('machine-name').value; 
+        let list = (masterData.machine || []).filter(r => r[1] === n).map(r => r[2]); 
+        list = list.concat(getProjData(`machine_spec_${n}`)); populate('machine-spec', unique(list)); 
+    }
+    function filterMacCompany() { 
+        const k = document.getElementById('mac-co-kana').value; 
+        let list = (masterData.company || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('company')); populate('machine-company', unique(list)); 
+    }
+    function filterMaterialType() { 
+        const k = document.getElementById('material-kana').value; 
+        let list = (masterData.material || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('material_type')); populate('material-type', unique(list)); filterMaterialName(); 
+    }
+    function filterMaterialName() { 
+        const t = document.getElementById('material-type').value; 
+        let list = (masterData.material || []).filter(r => t === "" || r[1] === t).map(r => r[2]); 
+        list = list.concat(getProjData('material_name')); populate('material-name', unique(list)); filterMaterialSpec(); 
+    }
+    function filterMaterialSpec() { 
+        const n = document.getElementById('material-name').value; 
+        let list = (masterData.material || []).filter(r => r[2] === n).map(r => r[3]); 
+        list = list.concat(getProjData(`material_spec_${n}`)); populate('material-spec', unique(list)); 
+    }
+    function filterMatCompany() { 
+        const k = document.getElementById('mat-co-kana').value; 
+        let list = (masterData.company || []).filter(r => k === "すべて" || r[0] === k || k === "").map(r => r[1]); 
+        list = list.concat(getProjData('company')); populate('material-supplier', unique(list)); 
+    }
+
+    // --- 入力モーダル制御 ---
+    function openCreateModal(type) {
+        editingRow = null; 
+        document.querySelectorAll(`#modal-${type} input[type="text"], #modal-${type} input[type="number"]`).forEach(el => el.value = '');
+        if(type !== 'work') { document.getElementById(`${type}-count`).value = '1'; }
+        
+        if(type === 'work') { 
+            document.getElementById('work-kana').value = 'すべて'; 
+            if(masterData.progress) filterWork(); 
+        } 
+        else if(type === 'labor') { 
+            document.getElementById('labor-kana').value = 'すべて'; 
+            if(masterData.company) filterLaborCompany(); 
+            let roles = (masterData.role ? masterData.role.map(r => r[0]) : []).concat(getProjData('role')); populate('labor-role', unique(roles)); 
+        } 
+        else if(type === 'machine') { 
+            document.getElementById('machine-kana').value = 'すべて'; document.getElementById('mac-co-kana').value = 'すべて'; 
+            if(masterData.machine) filterMachineName(); if(masterData.company) filterMacCompany(); 
+        } 
+        else if(type === 'material') { 
+            document.getElementById('material-kana').value = 'すべて'; document.getElementById('mat-co-kana').value = 'すべて'; 
+            if(masterData.material) filterMaterialType(); if(masterData.company) filterMatCompany(); 
+        }
+        openModal(`modal-${type}`);
+    }
+
+    function editRow(tr, type) {
+        editingRow = tr; const cells = tr.querySelectorAll('td'); if(!cells || cells.length === 0) return;
+        
+        if (type === 'work') {
+            const name = tr.getAttribute('data-name') || cells[0].innerText || ''; let kana = 'すべて';
+            if(masterData.progress) { const m = masterData.progress.find(r => r[1] === name); if(m) kana = m[0]; }
+            document.getElementById('work-kana').value = kana; filterWork(); document.getElementById('work-name').value = name;
+            document.getElementById('work-place').value = tr.getAttribute('data-place') || cells[1].innerText || ''; 
+            document.getElementById('work-detail').value = tr.getAttribute('data-detail') || cells[2].innerText || '';
+        } 
+        else if (type === 'labor') {
+            const comp = tr.getAttribute('data-company') || cells[0].innerText || ''; let kana = 'すべて';
+            if(masterData.company) { const m = masterData.company.find(r => r[1] === comp); if(m) kana = m[0]; }
+            document.getElementById('labor-kana').value = kana; filterLaborCompany(); document.getElementById('labor-company').value = comp;
+            let roles = (masterData.role ? masterData.role.map(r => r[0]) : []).concat(getProjData('role')); populate('labor-role', unique(roles));
+            document.getElementById('labor-role').value = tr.getAttribute('data-role') || cells[1].innerText || ''; 
+            document.getElementById('labor-count').value = tr.getAttribute('data-count') || strToNum(cells[2].innerText) || 1;
+        } 
+        else if (type === 'machine') {
+            const n = tr.getAttribute('data-name') || cells[0].innerText.split(' (')[0] || ''; const comp = tr.getAttribute('data-company') || '';
+            let mKana = 'すべて'; let cKana = 'すべて';
+            if(masterData.machine) { const m = masterData.machine.find(r => r[1] === n); if(m) mKana = m[0]; }
+            if(masterData.company) { const c = masterData.company.find(r => r[1] === comp); if(c) cKana = c[0]; }
+            document.getElementById('machine-kana').value = mKana; filterMachineName(); document.getElementById('mac-co-kana').value = cKana; filterMacCompany();
+            document.getElementById('machine-name').value = n; 
+            let specs = (masterData.machine ? masterData.machine.filter(r => r[1] === n).map(r => r[2]) : []).concat(getProjData(`machine_spec_${n}`)); populate('machine-spec', unique(specs));
+            document.getElementById('machine-spec').value = tr.getAttribute('data-spec') || cells[1].innerText || ''; 
+            document.getElementById('machine-company').value = comp; 
+            document.getElementById('machine-count').value = tr.getAttribute('data-count') || strToNum(cells[2].innerText) || 1;
+        } 
+        else if (type === 'material') {
+            const t = tr.getAttribute('data-type') || ''; const n = tr.getAttribute('data-name') || ''; const supp = tr.getAttribute('data-supplier') || '';
+            let mKana = 'すべて'; let cKana = 'すべて';
+            if(masterData.material) { const m = masterData.material.find(r => r[1] === t); if(m) mKana = m[0]; }
+            if(masterData.company) { const c = masterData.company.find(r => r[1] === supp); if(c) cKana = c[0]; }
+            document.getElementById('material-kana').value = mKana; filterMaterialType(); document.getElementById('mat-co-kana').value = cKana; filterMatCompany();
+            document.getElementById('material-type').value = t; 
+            let names = (masterData.material ? masterData.material.filter(r => t === "" || r[1] === t).map(r => r[2]) : []).concat(getProjData('material_name')); populate('material-name', unique(names));
+            document.getElementById('material-name').value = n; 
+            let specs = (masterData.material ? masterData.material.filter(r => r[2] === n).map(r => r[3]) : []).concat(getProjData(`material_spec_${n}`)); populate('material-spec', unique(specs));
+            document.getElementById('material-spec').value = tr.getAttribute('data-spec') || ''; 
+            document.getElementById('material-supplier').value = supp; 
+            document.getElementById('material-count').value = tr.getAttribute('data-count') || strToNum(cells[1].innerText) || 1; 
+            document.getElementById('material-measured').value = tr.getAttribute('data-measured') || '';
+            const judge = tr.getAttribute('data-judge') || '合'; 
+            document.querySelectorAll('#modal-material .pf-btn').forEach(b => { b.classList.toggle('active', b.getAttribute('data-val') === judge); });
+        }
+        openModal(`modal-${type}`);
+    }
+
+    function appendRow(t) {
+        const tr = editingRow || document.createElement('tr'); let html = '';
+        if(t==='work') {
+            const name = document.getElementById('work-name').value; const place = document.getElementById('work-place').value; const detail = document.getElementById('work-detail').value;
+            if(name) addProjData('work_name', name); 
+            tr.setAttribute('data-name', name); tr.setAttribute('data-place', place); tr.setAttribute('data-detail', detail);
+            html = `<td>${name}</td><td>${place}</td><td>${detail}</td>`;
+        } 
+        else if(t==='labor') {
+            const comp = document.getElementById('labor-company').value; const role = document.getElementById('labor-role').value; const count = document.getElementById('labor-count').value || 1;
+            if(comp) addProjData('company', comp); if(role) addProjData('role', role);
+            tr.setAttribute('data-company', comp); tr.setAttribute('data-role', role); tr.setAttribute('data-count', count);
+            html = `<td>${comp}</td><td>${role}</td><td class="labor-c">${count}</td>`;
+        } 
+        else if(t==='machine') {
+            const name = document.getElementById('machine-name').value; const spec = document.getElementById('machine-spec').value; const comp = document.getElementById('machine-company').value; const count = document.getElementById('machine-count').value || 1;
+            if(name) { addProjData('machine_name', name); if(spec) addProjData(`machine_spec_${name}`, spec); } if(comp) addProjData('company', comp);
+            tr.setAttribute('data-name', name); tr.setAttribute('data-spec', spec); tr.setAttribute('data-company', comp); tr.setAttribute('data-count', count);
+            let disp = name; if(comp) disp += ` (${comp})`;
+            html = `<td>${disp}</td><td>${spec}</td><td class="machine-c">${count}</td>`;
+        } 
+        else if(t==='material') {
+            const name = document.getElementById('material-name').value; const spec = document.getElementById('material-spec').value; const type = document.getElementById('material-type').value; const supp = document.getElementById('material-supplier').value; const count = document.getElementById('material-count').value || 1; const measured = document.getElementById('material-measured').value; const judge = document.querySelector('#modal-material .pf-btn.active').getAttribute('data-val');
+            if(type) addProjData('material_type', type); if(name) { addProjData('material_name', name); if(spec) addProjData(`material_spec_${name}`, spec); } if(supp) addProjData('company', supp);
+            tr.setAttribute('data-type', type); tr.setAttribute('data-name', name); tr.setAttribute('data-spec', spec); tr.setAttribute('data-supplier', supp); tr.setAttribute('data-count', count); tr.setAttribute('data-measured', measured); tr.setAttribute('data-judge', judge);
+            html = `<td><div style="font-weight:bold;">${name} ${spec}</div><div style="font-size:0.75rem; color:#666;">${supp} ${measured ? '| 測定:'+measured : ''}</div></td><td class="material-c">${count}</td><td style="text-align:center;">${judge}</td>`;
+            document.getElementById('material-measured').value = "";
+        }
+        html += `<td style="text-align:center; color:#d32f2f; font-weight:bold;" onclick="event.stopPropagation(); deleteTableRow(this, '${t}');">❌</td>`;
+        tr.innerHTML = html; tr.setAttribute('onclick', `editRow(this, '${t}')`);
+        if (!editingRow) { document.querySelector(`#table-${t} tbody`).appendChild(tr); }
+        updateGrandTotal(t); closeModal(`modal-${t}`);
+    }
+
+    function updateGrandTotal(t) {
+        if(t === 'work' || t === 'material') return;
+        let dailyCount = 0; document.querySelectorAll(`#table-${t} tbody tr`).forEach(tr => { dailyCount += Number(tr.getAttribute('data-count') || 0); });
+        const unit = (t === 'labor') ? '人' : '台';
+        const dailyEl = document.getElementById(`total-${t}-count`); if(dailyEl) dailyEl.innerText = formatNum(dailyCount) + unit;
+        if(!selectedProjectNo) {
+            const projEl = document.getElementById(`project-${t}-count`); if(projEl) projEl.innerText = "0" + unit; updateProjectStats(); return;
+        }
+        const currentDate = document.getElementById('report-date').value;
+        let projectCount = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(`report_${selectedProjectNo}_`)) {
+                const savedDate = key.split('_')[2]; if (savedDate >= currentDate) continue;
+                try {
+                    const d = JSON.parse(localStorage.getItem(key)); const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = '<table><tbody>' + (d[`${t}_html`] || '') + '</tbody></table>';
+                    tempDiv.querySelectorAll('tr').forEach(savedTr => { projectCount += Number(savedTr.getAttribute('data-count') || 0); });
+                } catch(e) {}
+            }
+        }
+        projectCount += dailyCount;
+        const projEl = document.getElementById(`project-${t}-count`); if(projEl) projEl.innerText = formatNum(projectCount) + unit;
+        updateProjectStats(); 
+    }
+
+    function updateProjectStats() {
+        if(!selectedProjectNo) { document.getElementById('stat-days').innerText = "0"; document.getElementById('stat-hours').innerText = "0"; return; }
+        const currentDate = document.getElementById('report-date').value;
+        let startDate = localStorage.getItem(`p_${selectedProjectNo}_start_date`);
+        let minDate = currentDate; let pastLabor = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(`report_${selectedProjectNo}_`)) {
+                const savedDate = key.split('_')[2];
+                if (!startDate && savedDate < minDate) { minDate = savedDate; }
+                if (savedDate < currentDate) {
+                    try {
+                        const d = JSON.parse(localStorage.getItem(key));
+                        const tempDiv = document.createElement('div'); tempDiv.innerHTML = '<table><tbody>' + (d.labor_html || '') + '</tbody></table>';
+                        tempDiv.querySelectorAll('tr').forEach(savedTr => { pastLabor += Number(savedTr.getAttribute('data-count') || 0); });
+                    } catch(e) {}
+                }
+            }
+        }
+        if (startDate) { minDate = startDate; }
+        let currentUILabor = 0;
+        document.querySelectorAll('#table-labor tbody tr').forEach(tr => { currentUILabor += Number(tr.getAttribute('data-count') || 0); });
+        const totalLabor = pastLabor + currentUILabor;
+        const accidentFreeHours = totalLabor * 7.5; 
+        const d1 = new Date(minDate); const d2 = new Date(currentDate);
+        const diffTime = d2.getTime() - d1.getTime();
+        let diffDays = diffTime >= 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1 : 0;
+        document.getElementById('stat-days').innerText = formatNum(diffDays);
+        document.getElementById('stat-hours').innerText = formatNum(accidentFreeHours); 
+    }
+
+    // --- 日報の保存と読み込み ---
+    function saveReport() {
+        if(!selectedProjectNo) { alert("左側のリストから工事を選択してください。"); return; }
+        const date = document.getElementById('report-date').value; 
+        const key = `report_${selectedProjectNo}_${date}`;
+        const photos = []; 
+        document.querySelectorAll('.photo-item').forEach(item => { photos.push({ src: item.querySelector('img').src, comment: item.querySelector('textarea').value }); });
+        
+        let hasWarning = false;
+        const managerVal = document.getElementById('input-manager').value;
+        const workHtmlVal = document.querySelector('#table-work tbody').innerHTML;
+        if (!managerVal || (!workHtmlVal.includes('<tr>') && !workHtmlVal.includes('<tr'))) { hasWarning = true; }
+
+        const data = { 
+            manager: managerVal, temp: document.getElementById('input-temp').value, weather: document.querySelector('#weather-group .w-btn.active')?.innerText || "", 
+            am_time: document.getElementById('am-time').value, am_abnormal: document.querySelector('input[name="am-abnormal"]:checked')?.value, am_text: document.getElementById('am-text').value, 
+            pm_time: document.getElementById('pm-time').value, pm_abnormal: document.querySelector('input[name="pm-abnormal"]:checked')?.value, pm_text: document.getElementById('pm-text').value, 
+            inspection_type: document.querySelector('#inspection-type .type-btn.active')?.innerText || "", inspector: document.getElementById('report-inspector').value, judge: document.querySelector('#report-judge .pf-btn.active')?.innerText, 
+            tomorrow_work: document.getElementById('text-tomorrow-work').value, customer: document.getElementById('text-customer').value, internal: document.getElementById('text-internal').value, safety: document.getElementById('text-safety').value, 
+            photos: photos, work_html: workHtmlVal, labor_html: document.querySelector('#table-labor tbody').innerHTML, machine_html: document.querySelector('#table-machine tbody').innerHTML, material_html: document.querySelector('#table-material tbody').innerHTML,
+            has_warning: hasWarning 
+        };
+        
+        setSharedItem(key, JSON.stringify(data)); 
+        
+        if(hasWarning) {
+            alert("⚠️ 未入力の必須項目（所長名 または 本日の作業）があります！\n\n担当者に通知が送られ、正しく入力するまで他の操作が制限されます。");
+            
+            // 🐾 【追加】ここで裏側のPythonへ「SOS（メール送信指令）」を発信します！
+            try {
+                fetch('/api/send_warning_email', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_no: selectedProjectNo,
+                        project_name: document.getElementById('selected-badge').innerText,
+                        date: date,
+                        manager: managerVal
+                    })
+                }).then(res => console.log('Mail triggered'));
+            } catch(e) {
+                console.error("Mail trigger failed", e);
+            }
+
+        } else {
+            alert("保存完了しました。");
+        }
+        
+        loadReport(); 
+    }
+
+    function loadReport() {
+        if(!selectedProjectNo) return; 
+        const date = document.getElementById('report-date').value; 
+        const key = `report_${selectedProjectNo}_${date}`; 
+        const saved = localStorage.getItem(key);
+        
+        document.getElementById('preview-area').innerHTML = ''; document.getElementById('file-upload').value = '';
+        if(toastTimeout) document.getElementById('toast-bar').classList.remove('show'); 
+        
+        if(saved) {
+            const d = JSON.parse(saved); 
+            document.getElementById('input-manager').value = d.manager || ""; 
+            document.getElementById('input-temp').value = d.temp || ""; 
+            document.querySelectorAll('#weather-group .w-btn').forEach(b => b.classList.toggle('active', b.innerText === d.weather)); 
+            document.getElementById('am-time').value = d.am_time || ""; 
+            document.querySelectorAll('input[name="am-abnormal"]').forEach(r => r.checked = (r.value === d.am_abnormal)); 
+            document.getElementById('am-text').value = d.am_text || ""; 
+            document.getElementById('pm-time').value = d.pm_time || ""; 
+            document.querySelectorAll('input[name="pm-abnormal"]').forEach(r => r.checked = (r.value === d.pm_abnormal)); 
+            document.getElementById('pm-text').value = d.pm_text || ""; 
+            
+            if(d.inspection_type) { document.querySelectorAll('#inspection-type .type-btn').forEach(b => b.classList.toggle('active', b.innerText === d.inspection_type)); } 
+            document.getElementById('report-inspector').value = d.inspector || ""; 
+            if(d.judge) { document.querySelectorAll('#report-judge .pf-btn').forEach(b => b.classList.toggle('active', b.innerText === d.judge)); }
+            
+            document.getElementById('text-customer').value = d.customer || ""; 
+            document.getElementById('text-internal').value = d.internal || ""; 
+            document.getElementById('text-safety').value = d.safety || ""; 
+            document.getElementById('text-tomorrow-work').value = d.tomorrow_work || ""; 
+            
+            if (d.photos) { d.photos.forEach(p => addPhotoUI(p.src, p.comment)); } 
+            
+            document.querySelector('#table-work tbody').innerHTML = d.work_html || ""; 
+            document.querySelector('#table-labor tbody').innerHTML = d.labor_html || ""; 
+            document.querySelector('#table-machine tbody').innerHTML = d.machine_html || ""; 
+            document.querySelector('#table-material tbody').innerHTML = d.material_html || "";
+
+            // 🐾 未入力ペナルティのロック（左メニューは除外）
+            if (d.has_warning) {
+                document.getElementById('warning-badge').style.display = 'inline-block';
+                document.getElementById('sync-btn').classList.add('strict-lock');
+                document.getElementById('btn-prev-record').classList.add('strict-lock');
+                document.getElementById('btn-excel-export').classList.add('strict-lock');
+                document.getElementById('btn-preview').classList.add('strict-lock');
+                document.getElementById('input-manager').style.border = !d.manager ? "2px solid #d32f2f" : "1px solid #ccc";
+                document.getElementById('block-work').style.border = (!d.work_html || !d.work_html.includes('<tr')) ? "2px solid #d32f2f" : "";
+                showUndoToast('⚠️ 未入力項目があるため操作を制限しています', 'warning');
+            } else {
+                document.getElementById('warning-badge').style.display = 'none';
+                document.getElementById('sync-btn').classList.remove('strict-lock');
+                document.getElementById('btn-prev-record').classList.remove('strict-lock');
+                document.getElementById('btn-excel-export').classList.remove('strict-lock');
+                document.getElementById('btn-preview').classList.remove('strict-lock');
+                document.getElementById('input-manager').style.border = "1px solid #ccc";
+                document.getElementById('block-work').style.border = "";
+            }
+
+        } else {
+            let defaultMgr = currentManager ? currentManager.split('、')[0] : "";
+            document.getElementById('input-manager').value = defaultMgr; 
+            document.getElementById('input-temp').value = ""; 
+            document.querySelectorAll('#weather-group .w-btn').forEach(b => b.classList.remove('active')); 
+            document.getElementById('am-time').value = ""; document.getElementById('am-text').value = ""; 
+            document.getElementById('pm-time').value = ""; document.getElementById('pm-text').value = ""; 
+            document.getElementById('report-inspector').value = ""; document.getElementById('text-customer').value = ""; 
+            document.getElementById('text-internal').value = ""; document.getElementById('text-safety').value = ""; document.getElementById('text-tomorrow-work').value = "";
+            document.querySelector('#table-work tbody').innerHTML = ""; document.querySelector('#table-labor tbody').innerHTML = ""; 
+            document.querySelector('#table-machine tbody').innerHTML = ""; document.querySelector('#table-material tbody').innerHTML = "";
+            document.querySelectorAll('.type-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+
+            document.getElementById('warning-badge').style.display = 'none';
+            document.getElementById('sync-btn').classList.remove('strict-lock');
+            document.getElementById('btn-prev-record').classList.remove('strict-lock');
+            document.getElementById('btn-excel-export').classList.remove('strict-lock');
+            document.getElementById('btn-preview').classList.remove('strict-lock');
+            document.getElementById('input-manager').style.border = "1px solid #ccc";
+            document.getElementById('block-work').style.border = "";
+        }
+        
+        ['work', 'labor', 'machine', 'material'].forEach(t => { 
+            document.querySelectorAll(`#table-${t} tbody tr`).forEach(tr => { 
+                tr.setAttribute('onclick', `editRow(this, '${t}')`); 
+                const lastTd = tr.querySelector('td:last-child'); 
+                if (lastTd && lastTd.innerText.includes('❌')) { lastTd.setAttribute('onclick', `event.stopPropagation(); deleteTableRow(this, '${t}');`); } 
+            }); 
+            updateGrandTotal(t); 
+        });
+    }
+
+    // --- 過去データの引用 ---
+    function getLatestPastReport() { 
+        if (!selectedProjectNo) return null; 
+        const currentDate = document.getElementById('report-date').value; 
+        let latestDate = null; let latestData = null; 
+        for (let i = 0; i < localStorage.length; i++) { 
+            const key = localStorage.key(i); 
+            if (key.startsWith(`report_${selectedProjectNo}_`)) { 
+                const savedDate = key.split('_')[2]; 
+                if (savedDate < currentDate) { 
+                    if (!latestDate || savedDate > latestDate) { latestDate = savedDate; latestData = JSON.parse(localStorage.getItem(key)); } 
+                } 
+            } 
+        } 
+        return { date: latestDate, data: latestData }; 
+    }
+
+    function copyPrevTable(type) { 
+        const past = getLatestPastReport(); 
+        if (!past || !past.data) { alert("過去のデータがありません。"); return; } 
+        if (past.data[`${type}_html`]) { 
+            document.querySelector(`#table-${type} tbody`).insertAdjacentHTML('beforeend', past.data[`${type}_html`]); 
+            document.querySelectorAll(`#table-${type} tbody tr`).forEach(tr => { 
+                tr.setAttribute('onclick', `editRow(this, '${type}')`); 
+                const lastTd = tr.querySelector('td:last-child'); 
+                if (lastTd && lastTd.innerText.includes('❌')) { lastTd.setAttribute('onclick', `event.stopPropagation(); deleteTableRow(this, '${type}');`); } 
+            }); 
+            updateGrandTotal(type); 
+        } 
+    }
+
+    function copyPrevText(inputId, dataKey) { 
+        const past = getLatestPastReport(); 
+        if (!past || !past.data) { alert("過去のデータがありません。"); return; } 
+        if (past.data[dataKey]) { const el = document.getElementById(inputId); el.value += (el.value ? '\n' : '') + past.data[dataKey]; } 
+    }
+
+    function copyPrevPatrol() {
+        const past = getLatestPastReport(); 
+        if (!past || !past.data) { alert("過去のデータがありません。"); return; } 
+        const d = past.data;
+        if(d.am_time && !document.getElementById('am-time').value) document.getElementById('am-time').value = d.am_time;
+        if(d.am_abnormal) document.querySelectorAll('input[name="am-abnormal"]').forEach(r => r.checked = (r.value === d.am_abnormal));
+        if(d.am_text) { const el = document.getElementById('am-text'); el.value += (el.value ? '\n' : '') + d.am_text; }
+        if(d.pm_time && !document.getElementById('pm-time').value) document.getElementById('pm-time').value = d.pm_time;
+        if(d.pm_abnormal) document.querySelectorAll('input[name="pm-abnormal"]').forEach(r => r.checked = (r.value === d.pm_abnormal));
+        if(d.pm_text) { const el = document.getElementById('pm-text'); el.value += (el.value ? '\n' : '') + d.pm_text; }
+    }
+
+    function copyAllFromPrev() {
+        const past = getLatestPastReport(); 
+        if (!past || !past.data) { alert("過去の日報データが見つかりません。"); return; }
+        if(confirm(`${past.date} の日報データを現在の入力に追加しますか？`)) {
+            const d = past.data; 
+            const setIfEmpty = (id, val) => { if(val && !document.getElementById(id).value) document.getElementById(id).value = val; }; 
+            const appendText = (id, val) => { if(val) document.getElementById(id).value += (document.getElementById(id).value ? '\n' : '') + val; };
+            
+            setIfEmpty('input-manager', d.manager); setIfEmpty('input-temp', d.temp); setIfEmpty('am-time', d.am_time); setIfEmpty('pm-time', d.pm_time); 
+            if(d.inspection_type) document.querySelectorAll('#inspection-type .type-btn').forEach(b => b.classList.toggle('active', b.innerText === d.inspection_type)); 
+            
+            appendText('am-text', d.am_text); appendText('pm-text', d.pm_text); appendText('text-tomorrow-work', d.tomorrow_work); appendText('text-customer', d.customer); appendText('text-internal', d.internal); appendText('text-safety', d.safety);
+            
+            if(d.work_html) document.querySelector('#table-work tbody').insertAdjacentHTML('beforeend', d.work_html); 
+            if(d.labor_html) document.querySelector('#table-labor tbody').insertAdjacentHTML('beforeend', d.labor_html); 
+            if(d.machine_html) document.querySelector('#table-machine tbody').insertAdjacentHTML('beforeend', d.machine_html); 
+            if(d.material_html) document.querySelector('#table-material tbody').insertAdjacentHTML('beforeend', d.material_html);
+            
+            ['work', 'labor', 'machine', 'material'].forEach(t => { 
+                document.querySelectorAll(`#table-${t} tbody tr`).forEach(tr => { 
+                    tr.setAttribute('onclick', `editRow(this, '${t}')`); 
+                    const lastTd = tr.querySelector('td:last-child'); 
+                    if (lastTd && lastTd.innerText.includes('❌')) { lastTd.setAttribute('onclick', `event.stopPropagation(); deleteTableRow(this, '${t}');`); } 
+                }); 
+                updateGrandTotal(t); 
+            }); 
+            alert("追加反映が完了しました！");
+        }
+    }
+
+    // --- 写真関連 ---
+    function openPhotoModal(src) { document.getElementById('enlarged-img').src = src; openModal('photoEnlargeModal'); }
+    function addPhotoUI(src, comment = "") { 
+        const div = document.createElement('div'); div.className = 'photo-item'; 
+        div.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:85px;"><img src="${src}" onclick="openPhotoModal(this.src)" title="クリックで拡大"></div><textarea class="form-control" placeholder="写真へのコメント...">${comment}</textarea><button class="delete-photo" onclick="this.parentElement.remove()">❌</button>`; 
+        document.getElementById('preview-area').appendChild(div); 
+    }
+    const dropZone = document.getElementById('drop-zone'); const fileInput = document.getElementById('file-upload');
+    if(dropZone && fileInput) { 
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = '#e8f0fe'; }); 
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.style.background = '#fafafa'; }); 
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.background = '#fafafa'; handleFiles(e.dataTransfer.files); }); 
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files)); 
+    }
+    function handleFiles(files) { 
+        Array.from(files).forEach(file => { 
+            if(file.type.startsWith('image/')) { 
+                const reader = new FileReader(); 
+                reader.onload = (e) => { 
+                    const img = new Image(); 
+                    img.onload = () => { 
+                        const canvas = document.createElement('canvas'); const MAX_WIDTH = 800; let scale = 1; 
+                        if(img.width > MAX_WIDTH) { scale = MAX_WIDTH / img.width; } 
+                        canvas.width = img.width * scale; canvas.height = img.height * scale; 
+                        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); addPhotoUI(compressedDataUrl); 
+                    }; img.src = e.target.result; 
+                }; reader.readAsDataURL(file); 
+            } 
+        }); 
+    }
+
+    // --- プレビュー ---
+    function showPreview() {
+        if(!selectedProjectNo) { alert("工事を選択してください。"); return; }
+        const pName = document.getElementById('selected-badge').innerText; const date = document.getElementById('report-date').value;
+        const wHtml = document.querySelector('#table-work tbody').innerHTML.replace(/<td style="text-align:center; color:#d32f2f; font-weight:bold;"[^>]*>❌<\/td>/g, '');
+        const lHtml = document.querySelector('#table-labor tbody').innerHTML.replace(/<td style="text-align:center; color:#d32f2f; font-weight:bold;"[^>]*>❌<\/td>/g, '');
+        const mHtml = document.querySelector('#table-machine tbody').innerHTML.replace(/<td style="text-align:center; color:#d32f2f; font-weight:bold;"[^>]*>❌<\/td>/g, '');
+        const matHtml = document.querySelector('#table-material tbody').innerHTML.replace(/<td style="text-align:center; color:#d32f2f; font-weight:bold;"[^>]*>❌<\/td>/g, '');
+        let insType = document.querySelector('#inspection-type .type-btn.active')?.innerText || ""; let insHtml = "";
+        if(insType !== "なし" && document.getElementById('report-inspector').value) { insHtml = `<div style="border:1px solid #000; padding:5px; margin-top:10px; font-size:0.85rem; background:#fff;"><b>社内検査:</b> ${insType}  <b>検査者:</b> ${document.getElementById('report-inspector').value}  <b>判定:</b> ${document.querySelector('#report-judge .pf-btn.active')?.innerText || ""}</div>`; }
+        let laborTotalStr = document.getElementById('total-labor-count').innerText + " / 全体累計: " + document.getElementById('project-labor-count').innerText;
+        let machineTotalStr = document.getElementById('total-machine-count').innerText + " / 全体累計: " + document.getElementById('project-machine-count').innerText;
+        let statDays = document.getElementById('stat-days').innerText; let statHours = document.getElementById('stat-hours').innerText;
+        let html = `<div class="preview-title">作 業 日 報</div><div style="display:flex; justify-content:space-between; margin-bottom:5px;"><div><b>工事名:</b> ${pName}</div><div><b>日付:</b> ${date}</div><div><b>天候:</b> ${document.querySelector('#weather-group .w-btn.active')?.innerText || ""} / ${document.getElementById('input-temp').value}</div><div><b>作業所長:</b> ${document.getElementById('input-manager').value}</div></div><div style="margin-bottom:10px; font-size:0.85rem; color:#1a73e8; border:1px solid #1a73e8; padding:5px; border-radius:4px; background:#f0f4ff;"><b style="margin-right:15px;">👷‍♂️ 工事日数: ${statDays} 日目</b> <b>無災害時間: ${statHours} 時間</b></div><b>本日の作業</b><table class="preview-table"><thead><tr><th>種別</th><th>施工箇所</th><th>作業内容</th></tr></thead><tbody>${wHtml}</tbody></table><div style="display:flex; gap:10px;"><div style="flex:1;"><b>労務</b><table class="preview-table"><thead><tr><th>業者名</th><th>役割</th><th>人</th></tr></thead><tbody>${lHtml}<tr><td colspan="2" style="text-align:right;"><b>本日 / 全体</b></td><td><b>${laborTotalStr}</b></td></tr></tbody></table></div><div style="flex:1;"><b>重機</b><table class="preview-table"><thead><tr><th>機械名</th><th>規格</th><th>台</th></tr></thead><tbody>${mHtml}<tr><td colspan="2" style="text-align:right;"><b>本日 / 全体</b></td><td><b>${machineTotalStr}</b></td></tr></tbody></table></div></div><b>資材・受入検査</b><table class="preview-table"><thead><tr><th>資材詳細</th><th>数量</th><th>結果</th></tr></thead><tbody>${matHtml}</tbody></table>${insHtml}<div style="display:flex; gap:10px; font-size:0.8rem; margin-top:10px;"><div style="flex:1; border:1px solid #000; padding:5px;"><b>明日の作業内容</b><br>${document.getElementById('text-tomorrow-work').value.replace(/\n/g, '<br>')}</div></div><div style="display:flex; gap:10px; font-size:0.8rem; margin-top:10px;"><div style="flex:1; border:1px solid #000; padding:5px;"><b>顧客からの指示事項</b><br>${document.getElementById('text-customer').value.replace(/\n/g, '<br>')}</div><div style="flex:1; border:1px solid #000; padding:5px;"><b>社内連絡</b><br>${document.getElementById('text-internal').value.replace(/\n/g, '<br>')}</div><div style="flex:1; border:1px solid #000; padding:5px;"><b>安全指示・確認事項</b><br>${document.getElementById('text-safety').value.replace(/\n/g, '<br>')}</div></div>`;
+        document.getElementById('preview-content').innerHTML = html; openModal('previewModal');
+    }
+
+    // --- Excel出力関連 ---
+    function getCountFromHtml(htmlStr) { let count = 0; const tempDiv = document.createElement('div'); tempDiv.innerHTML = '<table><tbody>' + (htmlStr || '') + '</tbody></table>'; tempDiv.querySelectorAll('tr').forEach(tr => { count += Number(tr.getAttribute('data-count') || 0); }); return count; }
+    function extractTableData(htmlStr, numCols) { const tempDiv = document.createElement('div'); tempDiv.innerHTML = '<table><tbody>' + htmlStr + '</tbody></table>'; const rows = tempDiv.querySelectorAll('tr'); let data = []; rows.forEach(tr => { let rowData = []; const cells = tr.querySelectorAll('td'); for(let i=0; i<numCols && i<cells.length; i++) { rowData.push(cells[i].innerText.trim().replace(/\n/g, ' ')); } if(rowData.length > 0) data.push(rowData); }); return data; }
+    
+    async function submitProject() { 
+        const btn = document.getElementById('btn-submit-project'); btn.innerHTML = '<span class="spinner"></span> 登録中...'; btn.disabled = true; 
+        const m1 = document.getElementById('new-manager1').value; const m2 = document.getElementById('new-manager2').value; const m3 = document.getElementById('new-manager3').value; const managers = [m1, m2, m3].filter(v => v).join('、'); 
+        const startDate = document.getElementById('new-start-date').value;
+        const payload = { project_no: document.getElementById('new-no').value, project_name: document.getElementById('new-name').value, manager: managers, status: document.getElementById('new-status').value }; 
+        if(!payload.project_no || !payload.project_name) { alert("必須項目を入力してください"); btn.innerHTML = '登録する'; btn.disabled = false; return; } 
+        try { 
+            await fetch('/api/add_project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+            if (startDate) { setSharedItem(`p_${payload.project_no}_start_date`, startDate); }
+            let lp = JSON.parse(localStorage.getItem('local_projects') || '[]');
+            if(!lp.find(p => p.no === payload.project_no)) {
+                lp.push({no: payload.project_no, name: payload.project_name, status: payload.status, manager: managers}); setSharedItem('local_projects', JSON.stringify(lp)); 
+            }
+            document.getElementById('new-no').value = ''; document.getElementById('new-name').value = ''; document.getElementById('new-start-date').value = ''; closeModal('addProjectModal'); await loadData(); 
+        } catch (e) {} 
+        btn.innerHTML = '登録する'; btn.disabled = false; 
+    }
+
+    async function downloadExcel() {
+        if(!selectedProjectNo) { alert("工事を選択してください。"); return; }
+        const type = document.getElementById('export-type').value; const targetMonth = document.getElementById('export-month').value; const targetWeek = document.getElementById('export-week').value; 
+        let dates = []; let periodName = "";
+        if (type === '1day') { const date = document.getElementById('report-date').value; dates.push(date); periodName = date; } 
+        else if (type === 'month') {
+            const [yyyy, mm] = targetMonth.split('-'); const daysInMonth = new Date(yyyy, mm, 0).getDate();
+            for (let i = 1; i <= daysInMonth; i++) { dates.push(`${yyyy}-${mm}-${String(i).padStart(2, '0')}`); } periodName = `${yyyy}年${mm}月分`;
+        } else if (type === 'week') {
+            const [yyyy, mm] = targetMonth.split('-'); const daysInMonth = new Date(yyyy, mm, 0).getDate(); let startDay = (targetWeek - 1) * 7 + 1; let endDay = targetWeek * 7; 
+            if (targetWeek == 5) endDay = daysInMonth; if (startDay > daysInMonth) { alert("この月には指定の週がありません。"); return; }
+            for (let i = startDay; i <= endDay; i++) { if (i <= daysInMonth) { dates.push(`${yyyy}-${mm}-${String(i).padStart(2, '0')}`); } } periodName = `${yyyy}年${mm}月_第${targetWeek}週分`;
+        }
+        document.querySelector('#excelModal .btn-submit-modal').innerText = "出力中...";
+        let exportData = []; let startDate = localStorage.getItem(`p_${selectedProjectNo}_start_date`);
+        dates.forEach(dStr => {
+            const saved = localStorage.getItem(`report_${selectedProjectNo}_${dStr}`);
+            if (saved) {
+                let dataObj = JSON.parse(saved); dataObj.date = dStr; dataObj.projectName = document.getElementById('selected-badge').innerText; dataObj.inspection_type = dataObj.inspection_type || ""; 
+                dataObj.work_data = extractTableData(dataObj.work_html || '', 3); dataObj.labor_data = extractTableData(dataObj.labor_html || '', 3); dataObj.machine_data = extractTableData(dataObj.machine_html || '', 3); dataObj.material_data = extractTableData(dataObj.material_html || '', 3);
+                let tLabor = 0; let tMachine = 0; let minDate = dStr;
+                for (let i = 0; i < localStorage.length; i++) {
+                    let k = localStorage.key(i);
+                    if (k.startsWith(`report_${selectedProjectNo}_`)) {
+                        let savedDate = k.split('_')[2]; if (!startDate && savedDate < minDate) { minDate = savedDate; }
+                        if (savedDate <= dStr) { let d = JSON.parse(localStorage.getItem(k)); tLabor += getCountFromHtml(d.labor_html); tMachine += getCountFromHtml(d.machine_html); }
+                    }
+                }
+                if (startDate) minDate = startDate;
+                let d1 = new Date(minDate); let d2 = new Date(dStr); let diffTime = d2.getTime() - d1.getTime(); let diffDays = diffTime >= 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1 : 0;
+                dataObj.stat_days = String(formatNum(diffDays)); dataObj.stat_hours = String(formatNum(tLabor * 7.5)); dataObj.labor_total_project = formatNum(tLabor); dataObj.machine_total_project = formatNum(tMachine); exportData.push(dataObj);
+            }
+        });
+        if (exportData.length === 0) { alert("指定した期間にデータがありません。"); document.querySelector('#excelModal .btn-submit-modal').innerText = "ダウンロード"; return; }
+        try {
+            const res = await fetch('/api/export_excel', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ project_no: selectedProjectNo, period: periodName, reports: exportData }) });
+            const blob = await res.blob(); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Report_${selectedProjectNo}_${periodName}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+        } catch(e) { alert("Excel出力失敗。"); }
+        document.querySelector('#excelModal .btn-submit-modal').innerText = "ダウンロード"; closeModal('excelModal');
+    }
+</script>
+</body>
+</html>
